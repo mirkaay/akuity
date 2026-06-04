@@ -7,6 +7,7 @@ configs:
     server.insecure: true
   cm:
     timeout.reconciliation: 30s
+    exec.enabled: "true"
   rbac:
     policy.default: role:readonly
     policy.csv: |
