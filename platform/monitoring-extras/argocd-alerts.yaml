@@ -1,0 +1,36 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: argocd-gitops-alerts
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/part-of: misbah-argocd-lab
+    release: kube-prometheus-stack
+spec:
+  groups:
+    - name: argocd.gitops.rules
+      rules:
+        - alert: ArgoCDApplicationOutOfSync
+          expr: argocd_app_info{sync_status!="Synced"} == 1
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Argo CD application is not synced"
+            description: "Application {{ $labels.name }} in project {{ $labels.project }} has sync status {{ $labels.sync_status }} for more than 5 minutes."
+        - alert: ArgoCDApplicationUnhealthy
+          expr: argocd_app_info{health_status=~"Degraded|Missing|Unknown|Suspended"} == 1
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Argo CD application is unhealthy"
+            description: "Application {{ $labels.name }} in project {{ $labels.project }} has health status {{ $labels.health_status }} for more than 5 minutes."
+        - alert: ArgoCDRepoServerTargetDown
+          expr: up{namespace="argocd", service=~".*repo-server.*"} == 0
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Argo CD repo-server metrics target is down"
+            description: "Prometheus cannot scrape the Argo CD repo-server metrics target for more than 5 minutes."
