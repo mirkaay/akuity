@@ -1,0 +1,109 @@
+global:
+  logging:
+    format: text
+
+configs:
+  params:
+    server.insecure: true
+  cm:
+    timeout.reconciliation: 30s
+  rbac:
+    policy.default: role:readonly
+    policy.csv: |
+      p, role:admin, applications, *, */*, allow
+      p, role:admin, clusters, *, *, allow
+      p, role:admin, repositories, *, *, allow
+      g, admin, role:admin
+
+server:
+  extraArgs:
+    - --insecure
+  metrics:
+    enabled: true
+  service:
+    type: ClusterIP
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+controller:
+  metrics:
+    enabled: true
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+
+repoServer:
+  metrics:
+    enabled: true
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+  volumes:
+    - name: custom-tools
+      emptyDir: {}
+  initContainers:
+    - name: install-custom-helm
+      image: alpine:3.20
+      imagePullPolicy: IfNotPresent
+      env:
+        - name: HELM_VERSION
+          value: v3.15.4
+      command:
+        - sh
+        - -c
+      args:
+        - |
+          set -eux
+          apk add --no-cache curl tar gzip
+          arch="$(uname -m)"
+          case "$arch" in
+            x86_64) arch="amd64" ;;
+            aarch64) arch="arm64" ;;
+            *) echo "Unsupported architecture: $arch"; exit 1 ;;
+          esac
+          curl -fsSL "https://get.helm.sh/helm-${HELM_VERSION}-linux-${arch}.tar.gz" -o /tmp/helm.tgz
+          tar -xzf /tmp/helm.tgz -C /tmp
+          cp "/tmp/linux-${arch}/helm" /custom-tools/helm
+          chmod +x /custom-tools/helm
+          /custom-tools/helm version --short
+      volumeMounts:
+        - name: custom-tools
+          mountPath: /custom-tools
+  volumeMounts:
+    - name: custom-tools
+      mountPath: /usr/local/bin/helm
+      subPath: helm
+
+applicationSet:
+  metrics:
+    enabled: true
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+
+dex:
+  enabled: false
+
+notifications:
+  enabled: false
+
+redis:
+  metrics:
+    enabled: true
